@@ -2,8 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from sklearn.metrics import confusion_matrix, classification_report, f1_score, recall_score, ConfusionMatrixDisplay
+import pandas as pd
 # --- 超参数配置 ---
-EPOCHS = 10
+EPOCHS = 50
 BATCH_SIZE = 32
 HIDDEN_UNITS = 128
 VALIDATION_SPLIT = 0.2
@@ -73,23 +74,46 @@ def main():
 
     # 构建与编译模型
     # 使用 CNN 架构
+    # 数据增强
+    #data_augmentation = tf.keras.Sequential([
+        #tf.keras.layers.RandomFlip("horizontal", input_shape=(28, 28, 1)),  # 随机水平翻转
+        #tf.keras.layers.RandomRotation(0.05),  # 随机旋转约 18 度 (0.05 * 360)
+        #tf.keras.layers.RandomZoom(height_factor=0.1, width_factor=0.1),  # 随机缩放 10%
+        #tf.keras.layers.RandomTranslation(height_factor=0.1, width_factor=0.1),  # 随机平移 10%
+    #])
     model = tf.keras.Sequential([
-        # 第一层卷积块
-        tf.keras.layers.Conv2D(32, (3, 3), input_shape=(28, 28, 1)),
+        tf.keras.layers.InputLayer(input_shape=(28, 28, 1)),
+        #data_augmentation,
+
+        # 第一层卷积块 (增加连续卷积，提升非线性表达)
+        tf.keras.layers.Conv2D(32, (3, 3), padding='same'),
         tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.MaxPooling2D((2, 2)),
-        tf.keras.layers.Dropout(0.25),
-        # 第二层卷积块
-        tf.keras.layers.Conv2D(64, (3, 3)),
+        tf.keras.layers.Activation('swish'),
+        tf.keras.layers.Conv2D(32, (3, 3), padding='same'),
         tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
+        tf.keras.layers.Activation('swish'),
         tf.keras.layers.MaxPooling2D((2, 2)),
         tf.keras.layers.Dropout(0.25),
 
+        # 第二层卷积块
+        tf.keras.layers.Conv2D(64, (3, 3), padding='same'),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Activation('swish'),
+        tf.keras.layers.Conv2D(64, (3, 3), padding='same'),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Activation('swish'),
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        tf.keras.layers.Dropout(0.3),  # 稍微增加Dropout防止深层网络过拟合
+
+        # 第三层卷积块 (专门用于提取高阶细粒度特征，区分领口/纽扣)
+        tf.keras.layers.Conv2D(128, (3, 3), padding='same'),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Activation('swish'),
+
         # 展平与全连接层
-        tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(HIDDEN_UNITS),
+        tf.keras.layers.GlobalAveragePooling2D(),
+
+        tf.keras.layers.Dense(256),
         tf.keras.layers.BatchNormalization(),
         tf.keras.layers.Activation('relu'),
         tf.keras.layers.Dropout(0.5),
@@ -100,20 +124,36 @@ def main():
                   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                   metrics=['accuracy'])
 
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+        monitor='val_loss',
+        factor=0.5,  # 每次降低一半的学习率
+        patience=3,  # 如果3个epoch没提升，就降学习率
+        min_lr=1e-5,  # 学习率下限
+        verbose=1
+    )
+
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor='val_loss',  # 监控验证集的损失值
-        patience=5,  # 如果连续 5 个 epoch 验证集 loss 都没有下降，则停止训练
+        patience=8,  # 如果连续 5 个 epoch 验证集 loss 都没有下降，则停止训练
         restore_best_weights=True  # 训练停止后，自动恢复到表现最好的那一次的模型权重
     )
 
     print("开始训练模型...")
+
+    # 给易错类别（如 Shirt）增加权重，基础类别保持为 1.0
+    custom_class_weight = {
+        0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0,
+        5: 1.0, 6: 1.05,  # 重点关注 Shirt
+        7: 1.0, 8: 1.0, 9: 1.0
+    }
     # 加入 validation_split 和 batch_size 增强训练过程的可见性和控制力
     model.fit(train_images,
               train_labels,
               epochs=EPOCHS,
               batch_size=BATCH_SIZE,
               validation_split=VALIDATION_SPLIT,
-              callbacks = [early_stopping])
+              #class_weight=custom_class_weight,
+              callbacks=[early_stopping, reduce_lr])
     print("\n评估模型性能...")
     test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=2)
     print(f'\nTest accuracy: {test_acc:.4f}')
@@ -127,14 +167,19 @@ def main():
     print("\n--- 模型深度评估 ---")
     # 计算并打印混淆矩阵
     cm = confusion_matrix(test_labels, predicted_classes)
-    print("混淆矩阵 (Confusion Matrix):")
-    print(cm)
+    cm_df = pd.DataFrame(cm, index=CLASS_NAMES, columns=CLASS_NAMES)
+    print("混淆矩阵 (带标签):")
+    # 设置 pandas 显示选项，防止列数太多被折叠
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 1000)
+    print(cm_df)
 
     # 绘制并保存混淆矩阵照片
-    fig, ax = plt.subplots(num="Confusion Matrix", figsize=(10, 10))
+    fig, ax = plt.subplots(num="Confusion Matrix", figsize=(12, 10))
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=CLASS_NAMES)
     disp.plot(cmap=plt.cm.Blues, ax=ax, xticks_rotation=45)  # 使用蓝色调，文字倾斜45度防止重叠
     plt.tight_layout()
+    plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
     print("-> 混淆矩阵图像已保存为当前目录下的 'confusion_matrix.png'")
 
     # 计算 F1 和 Recall (使用 macro 平均)

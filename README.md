@@ -1,68 +1,91 @@
-Fashion MNIST 图像分类与深度评估 (CNN)
-本项目是一个基于 TensorFlow 2.x 构建的卷积神经网络 (CNN) 图像分类器，专门针对 Fashion MNIST 服装数据集进行训练与预测。
+## Fashion MNIST 深度图像分类器
+基于 TensorFlow 和 Keras 构建的深度卷积神经网络（CNN），用于对 Fashion MNIST 数据集中的 10 类服饰图像进行高精度分类。本项目不仅包含了完整的模型构建与训练流程，还集成了丰富的评估指标和直观的数据可视化功能。
 
-除了基础的模型训练，本项目还整合了 Scikit-learn 的深度评估指标（如混淆矩阵、F1 Score、Recall）以及 Matplotlib 的直观可视化功能，为你提供从模型构建、训练、早停控制到多维度性能评估的端到端完整流线。
+## 🌟 核心特性
+现代 CNN 架构：采用连续卷积块设计，结合了 BatchNormalization 和性能更优的 Swish 激活函数。使用 GlobalAveragePooling2D 替代传统的展平操作（Flatten），有效减少参数量并降低过拟合风险。
+自适应训练策略：
 
-🌟 核心特性
-现代化 CNN 架构：引入了 BatchNormalization（批量归一化）和 Dropout，有效加速收敛并防止模型过拟合。
+早停机制 (Early Stopping)：监控验证集 Loss，在连续 8 个 Epoch 无提升时自动停止训练，并恢复最佳权重。
 
-智能显存管理：自动检测可用 GPU，并开启显存按需分配（Memory Growth），避免 TensorFlow 独占全部显存。
+学习率衰减 (ReduceLROnPlateau)：当模型陷入平台期时，自动将学习率减半，帮助模型跳出局部最优。
 
-自适应训练 (Early Stopping)：监控验证集 Loss，当模型在连续 5 个 Epoch 内不再提升时自动停止训练，并恢复到表现最优的权重。
+深度性能评估：除了基础的 Accuracy 之外，还使用 scikit-learn 和 pandas 计算并展示了 F1 Score (Macro)、Recall (Macro) 以及包含各项细节的分类报告 (Classification Report)。
 
-深度性能评估：不局限于简单的准确率 (Accuracy)，额外计算并输出 宏平均 (Macro) F1 Score 和 Recall，并生成详细的分类报告。
+混淆矩阵与可视化：自动计算混淆矩阵并将其绘制为高质量图像 (confusion_matrix.png) 保存至本地；同时在训练结束后弹出直观的预测概率条形图对比。
 
-丰富的数据可视化：
+硬件自适应：程序启动时会自动检测 GPU 环境，并开启显存的按需分配（Memory Growth），防止 TensorFlow 独占全部显存。
 
-自动绘制、保存并在程序末尾自动弹出高清的混淆矩阵图像 (confusion_matrix.png)。
+## 🛠️ 环境依赖
+在运行代码之前，请确保您的环境中已安装以下 Python 库：
 
-生成包含 15 张测试集图片的预测概率分布条形图。
-
-🛠️ 环境依赖
-在运行本项目之前，请确保你的环境中安装了以下 Python 库。推荐使用 Python 3.8 或以上版本。
+请在终端中运行以下命令来安装所需的环境：
 
 ```bash
-pip install tensorflow numpy matplotlib scikit-learn
+pip install -r requirements.txt
 ```
-TensorFlow: 用于构建和训练深度学习模型。
 
-NumPy: 用于矩阵计算和数据预处理。
+或者手动安装指定库：
 
-Matplotlib: 用于绘制预测结果和混淆矩阵图像。
+```bash
+pip install numpy matplotlib tensorflow scikit-learn pandas
+```
 
-Scikit-learn: 用于计算高级评估指标（分类报告、F1、Recall、混淆矩阵）。
+## 运行项目
 
-🧠 模型架构说明
-本项目没有采用简单的全连接网络，而是构建了一个两层卷积块组成的 CNN 架构，模型预测时，代码额外封装了一个包含 Softmax 层的概率模型 (probability_model)，以输出 0~1 之间的类概率。
+安装完依赖后，执行以下命令即可启动训练：
 
-🚀 快速开始
-克隆或下载本代码后，在终端中直接运行主程序即可：
-
-```Bash
+```bash
 python main.py
 ```
-运行流程概览：
-初始化：打印 TensorFlow 版本，检测 GPU 状态并配置显存。
+程序运行流程：
 
-数据加载：自动下载并预处理 Fashion MNIST 数据集。
+检测 GPU 状态。
 
-模型训练：根据设定的超参数（默认 10 个 Epochs，Batch Size 32，20% 验证集）开始训练，并触发 EarlyStopping。
+自动下载并预处理 Fashion MNIST 数据集（归一化至 0-1 并扩展通道维度）。
 
-指标评估：在终端打印 Test Accuracy、混淆矩阵、Macro F1、Macro Recall 及详细分类报告。
+构建模型并开始训练（默认 50 个 Epoch，验证集划分 20%）。
 
-图像保存：在当前目录下生成高清的 confusion_matrix.png。
+训练结束后，在终端打印评估指标和混淆矩阵 DataFrame。
 
-可视化展示：弹出一个 Matplotlib 窗口，直观展示 15 个测试样本的图片及其预测概率分布。
+在当前目录下生成并保存 confusion_matrix.png。
 
-⚙️ 超参数配置 (Hyperparameters)
-你可以在 main.py 的文件顶部轻松修改以下超参数，以探索不同配置对模型性能的影响：
+弹出可视化窗口，展示部分测试集图片的预测结果与真实标签对比。
 
-EPOCHS = 10 (最大训练轮数)
+## 🧠 模型结构简述
+输入尺寸: (28, 28, 1)
 
-BATCH_SIZE = 32 (批次大小)
+Block 1 (基础特征提取): 2x [Conv2D(32) -> BatchNorm -> Swish] -> MaxPool -> Dropout(0.25)
 
-HIDDEN_UNITS = 128 (全连接层神经元数量)
+Block 2 (中级特征提取): 2x [Conv2D(64) -> BatchNorm -> Swish] -> MaxPool -> Dropout(0.3)
 
-VALIDATION_SPLIT = 0.2 (用于验证集的数据比例)
+Block 3 (高阶细粒度特征): Conv2D(128) -> BatchNorm -> Swish
 
-💡 小贴士： 程序运行到最后会同时弹出两个 Matplotlib 图片窗口。程序会暂停运行直至你手动关闭这两个窗口。
+Classification Head: GlobalAveragePooling2D -> Dense(256) -> BatchNorm -> ReLU -> Dropout(0.5) -> Dense(10, Linear/Logits)
+
+## 📊 输出说明
+运行结束后，您将获得以下结果输出：
+
+终端日志：每个 Epoch 的训练/验证 Loss 和 Accuracy。
+
+详细测试指标：整体 Test Accuracy、Macro Recall、Macro F1 Score。
+
+分类报告：涵盖 10 个类别（如 T-shirt/top, Trouser, Shirt 等）的精准度（Precision）、召回率（Recall）和 F1 值。
+
+图表输出：
+
+本地保存的 confusion_matrix.png：用于分析模型在哪些相似类别（如 Shirt 与 T-shirt/top）上容易发生混淆。
+
+弹出的 matplotlib 窗口：直观展示单张图片的预测结果分布。
+
+## ⚙️ 超参数配置
+您可以直接在代码顶部的全局变量区修改基础超参数以进行调优：
+
+Python
+
+EPOCHS = 50             # 训练轮数
+
+BATCH_SIZE = 32         # 批次大小
+
+HIDDEN_UNITS = 128      # 隐藏层神经元（可按需扩展）
+
+VALIDATION_SPLIT = 0.2  # 验证集比例
